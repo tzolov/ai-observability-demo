@@ -9,7 +9,11 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.observation.aop.ObservedAspect;
 
 /**
  * https://programmingtechie.com/2023/09/09/spring-boot3-observability-grafana-stack/
@@ -28,7 +32,7 @@ public class AiObservabilityDemoApplication {
 		ChatClient ai = builder.build();
 		return args -> {
 			for (int i = 0; i < 150; i++) {
-				var response = ai.prompt()
+				var response = ai.prompt()	
 						.options(OpenAiChatOptions.builder().withSeed(new Random().nextInt()).build())
 						.user("tell me a joke?")
 						.call().chatResponse();
@@ -36,5 +40,11 @@ public class AiObservabilityDemoApplication {
 				Thread.sleep(10000);
 			}
 		};
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	ObservedAspect observedAspect(ObservationRegistry registry) {
+		return new ObservedAspect(registry);
 	}
 }
