@@ -32,20 +32,19 @@ public class AiObservabilityDemoApplication {
 	CommandLineRunner test(ChatClient.Builder builder, EmbeddingModel embeddingModel, DataLoadingService loader,
 			VectorStore vectorStore) {
 
-		// loader.load();
-		// var chatMemory = new InMemoryChatMemory();
+		loader.load();
+		var chatMemory = new InMemoryChatMemory();
 
 		ChatClient chatClient = builder.build();
 
 		return args -> {
 			for (int i = 0; i < 350; i++) {
 
-				funcitonCalling(chatClient, true);
+				// functionCalling(chatClient, false);
 
-				// questionAnswerWithChatMemory(chatClient, chatMemory, vectorStore);
+				questionAnswerWithChatMemory(chatClient, chatMemory, vectorStore);
 
-				// questionAnswerWithChatMemoryStreaming(chatClient, chatMemory,
-				// vectorStore);
+				// questionAnswerWithChatMemoryStreaming(chatClient, chatMemory, vectorStore);
 
 				Thread.sleep(5000);
 			}
@@ -80,9 +79,9 @@ public class AiObservabilityDemoApplication {
 
 	}
 
-	// Funciton calling
+	// Function calling
 
-	private void funcitonCalling(ChatClient chatClient, boolean parallelCalls) {
+	private void functionCalling(ChatClient chatClient, boolean parallelCalls) {
 
 		String response = chatClient.prompt()
 			.options(OpenAiChatOptions.builder().withParallelToolCalls(parallelCalls).build())
