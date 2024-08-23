@@ -10,7 +10,6 @@ import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.CommandLineRunner;
@@ -18,6 +17,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Description;
+import org.springframework.http.server.observation.ServerRequestObservationContext;
+
+import io.micrometer.observation.ObservationPredicate;
+import reactor.core.publisher.Flux;
 
 @SpringBootApplication
 public class AiObservabilityDemoApplication {
@@ -32,19 +35,22 @@ public class AiObservabilityDemoApplication {
 	CommandLineRunner test(ChatClient.Builder builder, EmbeddingModel embeddingModel, DataLoadingService loader,
 			VectorStore vectorStore) {
 
-		loader.load();
+		// loader.load();
 		var chatMemory = new InMemoryChatMemory();
 
 		ChatClient chatClient = builder.build();
 
 		return args -> {
-			for (int i = 0; i < 350; i++) {
+			for (int i = 0; i < 5; i++) {
 
-				// functionCalling(chatClient, false);
+				functionCalling(chatClient);
 
-				questionAnswerWithChatMemory(chatClient, chatMemory, vectorStore);
+				// functionCallingStreaming(chatClient);
 
-				// questionAnswerWithChatMemoryStreaming(chatClient, chatMemory, vectorStore);
+				// questionAnswerWithChatMemory(chatClient, chatMemory, vectorStore);
+
+				// questionAnswerWithChatMemoryStreaming(chatClient, chatMemory,
+				// vectorStore);
 
 				Thread.sleep(5000);
 			}
@@ -81,16 +87,27 @@ public class AiObservabilityDemoApplication {
 
 	// Function calling
 
-	private void functionCalling(ChatClient chatClient, boolean parallelCalls) {
+	private void functionCalling(ChatClient chatClient) {
 
 		String response = chatClient.prompt()
-			.options(OpenAiChatOptions.builder().withParallelToolCalls(parallelCalls).build())
 			.user("What is the status of my payment transactions 001, 002 and 003?")
 			.functions("paymentStatus")
 			.call()
 			.content();
 
 		logger.info("\n\n Response: {} \n\n", response);
+
+	}
+
+	private void functionCallingStreaming(ChatClient chatClient) {
+
+		Flux<String> response = chatClient.prompt()
+			.user("What is the status of my payment transactions 001, 002 and 003?")
+			.functions("paymentStatus")
+			.stream()
+			.content();
+
+		response.collectList().block().stream().forEach(s -> logger.info("Stream Response: {}", s));
 
 	}
 
@@ -111,5 +128,20 @@ public class AiObservabilityDemoApplication {
 
 	static final Map<Transaction, Status> DATASET = Map.of(new Transaction("001"), new Status("pending"),
 			new Transaction("002"), new Status("approved"), new Transaction("003"), new Status("rejected"));
+
+	// Optional suppress the actuator server observations. This hides the actuator
+	// prometheus traces.
+	@Bean
+	ObservationPredicate noActuatorServerObservations() {
+		return (name, context) -> {
+			if (name.equals("http.server.requests")
+					&& context instanceof ServerRequestObservationContext serverContext) {
+				return !serverContext.getCarrier().getRequestURI().startsWith("/actuator");
+			}
+			else {
+				return true;
+			}
+		};
+	}
 
 }
