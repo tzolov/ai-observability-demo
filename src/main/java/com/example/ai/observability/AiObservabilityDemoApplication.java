@@ -35,7 +35,7 @@ public class AiObservabilityDemoApplication {
 	CommandLineRunner test(ChatClient.Builder builder, EmbeddingModel embeddingModel, DataLoadingService loader,
 			VectorStore vectorStore) {
 
-		// loader.load();
+		loader.load();
 		var chatMemory = new InMemoryChatMemory();
 
 		ChatClient chatClient = builder.build();
@@ -43,11 +43,11 @@ public class AiObservabilityDemoApplication {
 		return args -> {
 			for (int i = 0; i < 5; i++) {
 
-				functionCalling(chatClient);
+				// functionCalling(chatClient);
 
 				// functionCallingStreaming(chatClient);
 
-				// questionAnswerWithChatMemory(chatClient, chatMemory, vectorStore);
+				questionAnswerWithChatMemory(chatClient, chatMemory, vectorStore);
 
 				// questionAnswerWithChatMemoryStreaming(chatClient, chatMemory,
 				// vectorStore);

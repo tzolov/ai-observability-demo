@@ -2,7 +2,7 @@
 
 ## RAG Example 
 
-Chat client call with Question/Anwering (aka RAG) and ChatMemory configurations:
+Chat client call with Question/Answering (aka RAG) and ChatMemory configurations:
 
 ```java
 var response = chatClient.prompt()
@@ -14,21 +14,21 @@ var response = chatClient.prompt()
 
 ```
 
-The traces would looke like:
+The traces would looks like:
 
 ![ChatClient with RAG and ChatMemory](/doc/rag_with_memory.png "ChatClient with RAG and ChatMemory")
 
 On call the `chat-client` calls:
 * the `Before` `question-answer-advisor`. 
-Internally it usees the `pg-vector-store` to retrieve the similar documents and the `open-ai-embedding-model` to encode the input user question. Internally it uses the OpneAiApi REST client.
+Internally it uses the `pg-vector-store` to retrieve the similar documents and the `open-ai-embedding-model` to encode the input user question. Internally it uses the OpenAiApi REST client.
 * the `Before` `prompt-chat-memory-advisor`to retrieve the history and store the user message.
-* then the chat-client uses the `openai-chat-model` (gpt-4o) perform the chatcompletion request. Later delgates to inner REST client (OpenAiApi).
-* finally it vists the `After` QA and memory advisors and returns the response.
+* then the chat-client uses the `openai-chat-model` (gpt-4o) perform the chatcompletion request. Later delegates to inner REST client (OpenAiApi).
+* finally it visits the `After` QA and memory advisors and returns the response.
 
 ## Function Calling Examples
 
-Call the funciton `paymentStatus` for 3 different transaciton. 
-But enforse non-parallel mode. So for each transaction the LLM will have to return and spearate tool call masage.
+Call the function `paymentStatus` for 3 different transaction. 
+But enforce non-parallel mode. So for each transaction the LLM will have to return and separate tool call massage.
 
 ```java
     String response = chatClient.prompt()
@@ -45,7 +45,7 @@ This produces traces like:
 
 ![Function Calling non-parallel](/doc/funciton_calling_sequential.png "Function Calling non-parallel")
 
-Diagram shows that 3 consequative tool calls are performed before the final reust. 
+Diagram shows that 3 consecutive tool calls are performed before the final result. 
 
 If the parallel calling is enabled the diagram looks like this:
 
