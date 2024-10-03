@@ -1,6 +1,9 @@
 package com.example.ai.observability;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.slf4j.Logger;
@@ -8,8 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+// import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
+import org.springframework.ai.chat.client.advisor.VectorStoreChatMemoryAdvisor;
+import org.springframework.ai.chat.client.observation.ChatClientObservationContext;
 import org.springframework.ai.chat.memory.InMemoryChatMemory;
+import org.springframework.ai.chat.observation.ChatModelObservationContext;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.CommandLineRunner;
@@ -18,8 +26,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Description;
 import org.springframework.http.server.observation.ServerRequestObservationContext;
+import org.springframework.util.Assert;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.Observation.Context;
+import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationPredicate;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.handler.TracingObservationHandler.TracingContext;
 import reactor.core.publisher.Flux;
 
 @SpringBootApplication
@@ -43,18 +57,67 @@ public class AiObservabilityDemoApplication {
 		return args -> {
 			for (int i = 0; i < 5; i++) {
 
+				callWithError(chatClient, chatMemory, i);
+
+				// tellMeAJoke(chatClient, chatMemory);
+
 				// functionCalling(chatClient);
 
 				// functionCallingStreaming(chatClient);
 
-				questionAnswerWithChatMemory(chatClient, chatMemory, vectorStore);
+				// questionAnswerWithChatMemory2(chatClient, chatMemory, vectorStore);
 
-				// questionAnswerWithChatMemoryStreaming(chatClient, chatMemory,
-				// vectorStore);
+				// questionAnswerWithChatMemoryStreaming2(chatClient, chatMemory, vectorStore);
 
 				Thread.sleep(5000);
 			}
 		};
+
+	}
+
+	private void callWithError(ChatClient chatClient, InMemoryChatMemory chatMemory, int index) {
+
+		int maxTokenSize = 500;
+		if (index == 3) {
+			maxTokenSize = -1;
+		}
+
+		try {
+			var response = chatClient.prompt()
+				.options(OpenAiChatOptions.builder().withMaxTokens(maxTokenSize).build())
+				.user("Tell me a different joke?")
+				.advisors(new PromptChatMemoryAdvisor(chatMemory))
+				.call()
+				.chatResponse();
+			logger.info("Response: {}", response.getResult().getOutput().getContent());
+		}
+		catch (Exception e) {
+			// logger.error("Error: {}", e.getMessage());
+		}
+
+	}
+
+	private void tellMeAJoke(ChatClient chatClient, InMemoryChatMemory chatMemory) {
+
+		for (int i = 1; i < 6; i++) {
+
+			var maxTokenSize = new Random().nextInt(100) + 10;
+
+			var response = chatClient.prompt()
+				.options(OpenAiChatOptions.builder().withMaxTokens(maxTokenSize).build())
+				.user("Tell me a different joke?")
+				.advisors(new PromptChatMemoryAdvisor(chatMemory))
+				.call()
+				.chatResponse();
+			logger.info("Response: {}", response.getResult().getOutput().getContent());
+
+			try {
+				Thread.sleep(10000);
+			}
+			catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
 
 	}
 
@@ -64,7 +127,23 @@ public class AiObservabilityDemoApplication {
 		var response = chatClient.prompt()
 			.user("How does Carina work?")
 			.advisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.defaults()))
-			.advisors(new PromptChatMemoryAdvisor(chatMemory))
+			// .advisors(new PromptChatMemoryAdvisor(chatMemory))
+			// .advisors(new SafeGuardAroundAdvisor(List.of("bla bla")))
+			.call()
+			.chatResponse();
+		logger.info("Response: {}", response.getResult().getOutput().getContent());
+
+	}
+
+	private void questionAnswerWithChatMemory2(ChatClient chatClient, InMemoryChatMemory chatMemory,
+			VectorStore vectorStore) {
+
+		var response = chatClient.prompt()
+			.user("How does Carina work?")
+			.advisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.defaults()))
+			// .advisors(new PromptChatMemoryAdvisor2(chatMemory))
+			// .advisors(new SafeGuardAroundAdvisor(List.of("bla bla")))
+			// .advisors(new VectorStoreChatMemoryAdvisor2(vectorStore))
 			.call()
 			.chatResponse();
 		logger.info("Response: {}", response.getResult().getOutput().getContent());
@@ -78,6 +157,25 @@ public class AiObservabilityDemoApplication {
 			.user("How does Carina work?")
 			.advisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.defaults()))
 			.advisors(new PromptChatMemoryAdvisor(chatMemory))
+			// .advisors(new SafeGuardAdvisor(List.of("bla bla")))
+			.stream()
+			.chatResponse();
+
+		response.collectList().block().stream().forEach(s -> logger.info("Stream Response: {}", s));
+
+	}
+
+	private void questionAnswerWithChatMemoryStreaming2(ChatClient chatClient, InMemoryChatMemory chatMemory,
+			VectorStore vectorStore) {
+
+		var response = chatClient.prompt()
+			// .user("How does Carina work?")
+			.system("Questions about the transactions status are realtime questions. You can not use the memory to answer the question.")
+			.user("What is the status of my payment transactions 001, 002 and 003?")
+			.functions("paymentStatus")
+			.advisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.defaults()))
+			.advisors(new PromptChatMemoryAdvisor(chatMemory))
+			.advisors(new VectorStoreChatMemoryAdvisor(vectorStore))
 			.stream()
 			.chatResponse();
 
@@ -142,6 +240,97 @@ public class AiObservabilityDemoApplication {
 				return true;
 			}
 		};
+	}
+
+	@Bean
+	public ObservationHandler<?> bla(Tracer tracer) {
+		return new ErrorLoggingObservationHandler(tracer,
+				List.of(ChatClientObservationContext.class, ChatModelObservationContext.class));
+		// return new ErrorLoggingObservationHandler(tracer,
+		// List.of(ChatClientObservationContext.class, ChatModelObservationContext.class),
+		// error -> logger.error("Error in chat client", error));
+	}
+
+	// @Bean
+	// public ObservationHandler<ChatClientObservationContext> observationHandler(Tracer tracer) {
+	// 	return new ObservationHandler<ChatClientObservationContext>() {
+
+	// 		@Override
+	// 		public boolean supportsContext(Context context) {
+	// 			return context instanceof ChatClientObservationContext;
+	// 		}
+
+	// 		@Override
+	// 		public void onStart(ChatClientObservationContext context) {
+	// 			TracingContext tracingContext = context.get(TracingContext.class);
+	// 			if (tracingContext != null) {
+	// 				try (var val = tracer.withSpan(tracingContext.getSpan())) {
+	// 					logger.info("Context Name: " + context.getContextualName());
+	// 				}
+	// 			}
+	// 		}
+
+	// 		@Override
+	// 		public void onError(ChatClientObservationContext context) {
+	// 			TracingContext tracingContext = context.get(TracingContext.class);
+	// 			if (tracingContext != null) {
+	// 				try (var val = tracer.withSpan(tracingContext.getSpan())) {
+	// 					logger.error("Error in chat client", context.getError());
+	// 				}
+	// 			}
+	// 		}
+
+	// 	};
+
+	// }
+
+	@SuppressWarnings("rawtypes")
+	public static class ErrorLoggingObservationHandler implements ObservationHandler {
+
+		private static final Logger logger = LoggerFactory.getLogger(ErrorLoggingObservationHandler.class);
+
+		private final Tracer tracer;
+
+		private final List<Class<? extends Observation.Context>> supportedContextTypes;
+
+		private final Consumer<Context> errorConsumer;
+
+		public ErrorLoggingObservationHandler(Tracer tracer,
+				List<Class<? extends Observation.Context>> supportedContextTypes) {
+			this(tracer, supportedContextTypes, context -> logger.error("ERROR: ", context.getError()));
+		}
+
+		public ErrorLoggingObservationHandler(Tracer tracer,
+				List<Class<? extends Observation.Context>> supportedContextTypes, Consumer<Context> errorConsumer) {
+
+			Assert.notNull(tracer, "Tracer must not be null");
+			Assert.notNull(supportedContextTypes, "SupportedContextTypes must not be null");
+			Assert.notNull(errorConsumer, "ErrorConsumer must not be null");
+
+			this.tracer = tracer;
+			this.supportedContextTypes = supportedContextTypes;
+			this.errorConsumer = errorConsumer;
+		}
+
+		@Override
+		public boolean supportsContext(Context context) {
+			return (context == null) ? false
+					: this.supportedContextTypes.stream().anyMatch(clz -> clz.isInstance(context));
+		}
+
+		@Override
+		public void onError(Context context) {
+			if (context == null) {
+				return;
+			}
+			TracingContext tracingContext = context.get(TracingContext.class);
+			if (tracingContext != null) {
+				try (var val = this.tracer.withSpan(tracingContext.getSpan())) {
+					this.errorConsumer.accept(context);
+				}
+			}
+		}
+
 	}
 
 }

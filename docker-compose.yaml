@@ -1,4 +1,17 @@
 services:
+
+    chroma:
+      image: ghcr.io/chroma-core/chroma:latest
+      restart: always
+      environment:
+        - IS_PERSISTENT=TRUE
+      volumes:
+        - chroma-data:/chroma/chroma/
+      ports:
+        - 8000:8000
+      networks:
+        - net
+
     postgres:
       image: ankane/pgvector:v0.5.0
       restart: always
@@ -151,3 +164,9 @@ volumes:
         driver: local
     tempo:
         driver: local
+    chroma-data:
+        driver: local  
+        
+networks:
+    net:
+        driver: bridge
