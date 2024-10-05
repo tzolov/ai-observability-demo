@@ -60,3 +60,15 @@ If the parallel calling is enabled the diagram looks like this:
 * https://medium.com/@ahmadalammar/comprehensive-observability-in-spring-boot-using-opentelemetry-prometheus-grafana-tempo-and-067196eee539
 * https://medium.com/@ahmadalammar/comprehensive-observability-in-spring-boot-using-opentelemetry-prometheus-grafana-tempo-and-4d50c2f2b711
 * https://medium.com/@ahmadalammar/comprehensive-observability-in-spring-boot-using-opentelemetry-prometheus-grafana-tempo-and-e08842ae96be
+
+
+## Observability
+
+- For streaming make sure to enable the context propagation:
+`spring.reactor.context-propagation=auto`
+
+- For percentiles histograms enable for the target metric
+`management.metrics.distribution.percentiles-histogram.<metric name>=true`
+
+For example for AI model calls:
+`management.metrics.distribution.percentiles-histogram.gen_ai.client.operation=true`
