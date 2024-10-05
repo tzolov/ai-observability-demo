@@ -37,6 +37,7 @@ public class AiObservabilityDemoApplication {
 		SpringApplication.run(AiObservabilityDemoApplication.class, args);
 	}
 
+	static Random random = new Random();
 	@Bean
 	CommandLineRunner test(ChatClient.Builder builder, EmbeddingModel embeddingModel, DataLoadingService loader,
 			VectorStore vectorStore, ObservationRegistry registry) {
@@ -61,7 +62,7 @@ public class AiObservabilityDemoApplication {
 
 				// questionAnswerWithChatMemoryStreaming2(chatClient, chatMemory, vectorStore);
 
-				Thread.sleep(500);
+				Thread.sleep(500 + random.nextInt(500));
 			}
 		};
 
