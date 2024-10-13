@@ -6,6 +6,7 @@ import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+// import org.springframework.ai.azure.openai.AzureOpenAiChatOptions;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
@@ -17,6 +18,7 @@ import org.springframework.ai.ollama.api.OllamaOptions;
 // import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+// import org.springframework.ai.vertexai.gemini.VertexAiGeminiChatOptions;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -58,7 +60,7 @@ public class AiObservabilityDemoApplication {
 
 				// functionCallingStreaming(chatClient);
 
-				questionAnswerWithChatMemory2(chatClient, chatMemory, vectorStore, registry);
+				questionAnswerWithChatMemory2(chatClient, chatMemory, vectorStore, registry); // BLa
 
 				// questionAnswerWithChatMemoryStreaming2(chatClient, chatMemory, vectorStore);
 
@@ -69,13 +71,17 @@ public class AiObservabilityDemoApplication {
 	}
 
 	private void callWithError(ChatClient chatClient, InMemoryChatMemory chatMemory, int index) {
-
+		
+		double temperature = 0.7;
 		int maxTokenSize = 500;
-		if (index == 3) {
+		if (index % 10 == 0) {
 			maxTokenSize = -1;
+			temperature = -0.7;
 		}
 
+		// int numBatch = -1;
 		int numBatch = 500;
+		
 		if (index % 10 == 0) {
 			numBatch = -1;
 		}
@@ -83,6 +89,8 @@ public class AiObservabilityDemoApplication {
 			var response = chatClient.prompt()
 				.options(OllamaOptions.builder().withNumBatch(numBatch))
 				// .options(OpenAiChatOptions.builder().withMaxTokens(maxTokenSize).build())
+				// .options(AzureOpenAiChatOptions.builder().withMaxTokens(maxTokenSize).build())
+				// .options(VertexAiGeminiChatOptions.builder().withTemperature(temperature).build())
 				.user("Tell me a different joke?")
 				.advisors(new PromptChatMemoryAdvisor(chatMemory))
 				.call()
@@ -90,7 +98,7 @@ public class AiObservabilityDemoApplication {
 			logger.info("Response: {}", response.getResult().getOutput().getContent());
 		}
 		catch (Exception e) {
-			// logger.error("Error: {}", e.getMessage());
+			logger.error("Error: {}", e.getMessage());
 		}
 
 	}
@@ -139,9 +147,9 @@ public class AiObservabilityDemoApplication {
 		var response = chatClient.prompt()
 			.user("How does Carina work?")
 			.advisors(new QuestionAnswerAdvisor(vectorStore, SearchRequest.defaults()))
-			// .advisors(new PromptChatMemoryAdvisor2(chatMemory))
-			// .advisors(new SafeGuardAroundAdvisor(List.of("bla bla")))
-			// .advisors(new VectorStoreChatMemoryAdvisor2(vectorStore))
+			.advisors(new PromptChatMemoryAdvisor(chatMemory))
+			// .advisors(new SafeGuardAdvisor(List.of("bla bla")))
+			.advisors(new VectorStoreChatMemoryAdvisor(vectorStore))
 			.call()
 			.chatResponse();
 		logger.info("Response: {}", response.getResult().getOutput().getContent());
